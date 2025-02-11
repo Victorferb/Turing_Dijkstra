@@ -64,3 +64,36 @@ class TuringMachine:
         
         return None  
 
+
+# Definição dos estados, fita inicial, transições e estado inicial
+states = {'q0', 'q1', 'q2', 'q3', 'q_accept'}  # Conjunto de estados da máquina
+
+tape = ['1', '0', '1', '1', '0']  # Configuração inicial da fita
+
+# Definição das transições da máquina
+# Formato: (estado atual, símbolo lido) -> [(próximo estado, símbolo escrito, direção do movimento, peso da transição)]
+transitions = {
+    ('q0', '1'): [('q1', '0', 'R', 4)],
+    ('q1', '0'): [('q2', '1', 'R', 3)],
+    ('q2', '1'): [('q3', '0', 'R', 6)],
+    ('q3', '1'): [('q4', '1', 'R', 1)],
+    ('q4', '0'): [('q_accept', '_', 'R', 3)],
+    ('q4', '_'): [('q_accept', '_', 'R', 2)]
+}
+
+
+start_state = 'q0'  # Estado inicial
+accept_states = {'q_accept'}  # Estados de aceitação
+
+
+
+# Criando e executando a máquina de Turing
+machine = TuringMachine(states, tape, transitions, start_state, accept_states)
+result = machine.run()
+
+# Exibindo os resultados
+print("Fita final:", result[0] if result else "Rejeitado")
+print("Caminho percorrido:", result[1] if result else "Nenhum")
+print("Soma ponderada:", result[2] if result else "N/A")
+
+
