@@ -64,6 +64,19 @@ class TuringMachine:
         
         return None  
 
+def draw_graph(transitions):
+    """ Gera uma visualização do grafo de transições da Máquina de Turing """
+    G = nx.DiGraph()
+    
+    for (state, symbol), transitions_list in transitions.items():
+        for next_state, write_symbol, move, weight in transitions_list:
+            G.add_edge(state, next_state, label=f'{symbol}/{write_symbol}, {move}, {weight}')
+    
+    pos = nx.spring_layout(G)
+    labels = nx.get_edge_attributes(G, 'label')
+    nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=2000, font_size=10)
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+    plt.show()
 
 # Definição dos estados, fita inicial, transições e estado inicial
 states = {'q0', 'q1', 'q2', 'q3', 'q_accept'}  # Conjunto de estados da máquina
@@ -96,4 +109,4 @@ print("Fita final:", result[0] if result else "Rejeitado")
 print("Caminho percorrido:", result[1] if result else "Nenhum")
 print("Soma ponderada:", result[2] if result else "N/A")
 
-
+draw_graph(transitions)
