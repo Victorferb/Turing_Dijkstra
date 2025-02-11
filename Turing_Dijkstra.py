@@ -15,5 +15,18 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
-
+class TuringMachine:
+    def __init__(self, states, tape, transitions, start_state, accept_states):
+       
+        self.states = states
+        self.tape = list(tape) + ['_']  
+        self.transitions = transitions
+        self.start_state = start_state
+        self.accept_states = accept_states
+        self.head = 0  
+    
+    def run(self):
+       
+        priority_queue = [(0, self.start_state, self.head, list(self.tape), [])]  
+        visited = set()
 
