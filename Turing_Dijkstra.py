@@ -17,52 +17,66 @@ from collections import defaultdict
 
 class TuringMachine:
     def __init__(self, states, tape, transitions, start_state, accept_states):
-       
+        """
+        Inicializa a Máquina de Turing.
+        
+        :param states: Conjunto de estados da máquina.
+        :param tape: Lista representando a fita inicial.
+        :param transitions: Dicionário de transições, onde a chave é (estado, símbolo) e o valor é uma lista de tuplas
+                            (próximo estado, símbolo a ser escrito, direção do movimento, peso da transição).
+        :param start_state: Estado inicial da máquina.
+        :param accept_states: Conjunto de estados de aceitação.
+        """
         self.states = states
-        self.tape = list(tape) + ['_']  
+        self.tape = list(tape) + ['_']  # Garante que a fita termina em um espaço em branco
         self.transitions = transitions
         self.start_state = start_state
         self.accept_states = accept_states
-        self.head = 0  
+        self.head = 0  # Posição inicial do cabeçote na fita
     
     def run(self):
-       
-        priority_queue = [(0, self.start_state, self.head, list(self.tape), [])]  
-        visited = set()
-
+        """
+        Executa a Máquina de Turing usando Dijkstra para encontrar o caminho de menor peso até um estado de aceitação.
+        
+        :return: (fita final, caminho percorrido, soma ponderada das arestas) ou None se nenhum estado de aceitação for atingido.
+        """
+        # Fila de prioridade (min-heap) para escolher sempre o caminho de menor custo primeiro
+        priority_queue = [(0, self.start_state, self.head, list(self.tape), [])]  # (custo, estado, posição da cabeça, fita, caminho percorrido)
+        visited = set()  # Conjunto para armazenar estados já visitados e evitar loops infinitos
+        
         while priority_queue:
-            cost, state, head, tape, path = heapq.heappop(priority_queue)  
+            cost, state, head, tape, path = heapq.heappop(priority_queue)  # Extrai o nó de menor custo
             
-            
+            # Verifica se esse estado já foi visitado para evitar ciclos
             if (state, head, tuple(tape)) in visited:
                 continue
             visited.add((state, head, tuple(tape)))
             
-            
+            # Se chegamos a um estado de aceitação, retornamos o resultado
             if state in self.accept_states:
                 return ''.join(tape), path, cost
             
-            
+            # Obtém o símbolo atual da fita (ou '_' caso esteja fora dos limites)
             current_symbol = tape[head] if 0 <= head < len(tape) else '_'
             
-            
+            # Verifica se há transições para o estado atual e símbolo lido
             if (state, current_symbol) in self.transitions:
                 for next_state, write_symbol, move, weight in self.transitions[(state, current_symbol)]:
                     new_tape = tape[:]
-                    new_tape[head] = write_symbol  
-                    new_head = head + (1 if move == 'R' else -1)  
+                    new_tape[head] = write_symbol  # Escreve na fita
+                    new_head = head + (1 if move == 'R' else -1)  # Move a cabeça para direita (R) ou esquerda (L)
                     
-                    
+                    # Se o movimento for para fora da fita, expande a fita
                     if new_head < 0:
                         new_tape.insert(0, '_')
                         new_head = 0
                     elif new_head >= len(new_tape):
                         new_tape.append('_')
                     
-                    
+                    # Adiciona a nova configuração na fila de prioridade
                     heapq.heappush(priority_queue, (cost + weight, next_state, new_head, new_tape, path + [(state, next_state, weight)]))
         
-        return None  
+        return None  # Retorna None se nenhum estado de aceitação for atingido
 
 def draw_graph(transitions):
     """ Gera uma visualização do grafo de transições da Máquina de Turing """
@@ -109,4 +123,6 @@ print("Fita final:", result[0] if result else "Rejeitado")
 print("Caminho percorrido:", result[1] if result else "Nenhum")
 print("Soma ponderada:", result[2] if result else "N/A")
 
+# Gerando o grafo de transições
 draw_graph(transitions)
+
