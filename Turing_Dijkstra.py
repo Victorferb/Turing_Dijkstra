@@ -1,85 +1,57 @@
-"""
-Implementação de uma máquina de turing nao determinista e de fita limitada
-onde as arestas são ponderadas e dar como resultados:
-
-- fita final
-- caminho percorrido
-- soma ponderada das arestas
-
-O truque é alterar o grafo da máquina e trocar o bfs por um djkistra
-"""
-
-#Bibliotecas utilizadas
 import heapq
 import networkx as nx
 import matplotlib.pyplot as plt
-from collections import defaultdict
+import matplotlib.animation as animation
 
 class TuringMachine:
     def __init__(self, states, tape, transitions, start_state, accept_states):
-        """
-        Inicializa a Máquina de Turing.
-        
-        :param states: Conjunto de estados da máquina.
-        :param tape: Lista representando a fita inicial.
-        :param transitions: Dicionário de transições, onde a chave é (estado, símbolo) e o valor é uma lista de tuplas
-                            (próximo estado, símbolo a ser escrito, direção do movimento, peso da transição).
-        :param start_state: Estado inicial da máquina.
-        :param accept_states: Conjunto de estados de aceitação.
-        """
         self.states = states
-        self.tape = list(tape) + ['_']  # Garante que a fita termina em um espaço em branco
+        self.tape = list(tape) + ['_']  # Garante um espaço extra na fita
         self.transitions = transitions
         self.start_state = start_state
         self.accept_states = accept_states
-        self.head = 0  # Posição inicial do cabeçote na fita
+        self.head = 0  # Posição inicial do cabeçote
+        self.history = []  # Armazena os passos para animação
     
     def run(self):
-        """
-        Executa a Máquina de Turing usando Dijkstra para encontrar o caminho de menor peso até um estado de aceitação.
-        
-        :return: (fita final, caminho percorrido, soma ponderada das arestas) ou None se nenhum estado de aceitação for atingido.
-        """
-        # Fila de prioridade (min-heap) para escolher sempre o caminho de menor custo primeiro
-        priority_queue = [(0, self.start_state, self.head, list(self.tape), [])]  # (custo, estado, posição da cabeça, fita, caminho percorrido)
-        visited = set()  # Conjunto para armazenar estados já visitados e evitar loops infinitos
+        """ Executa a Máquina de Turing usando Dijkstra e armazena os passos para animação. """
+        priority_queue = [(0, self.start_state, self.head, list(self.tape), [])]
+        visited = {}
         
         while priority_queue:
-            cost, state, head, tape, path = heapq.heappop(priority_queue)  # Extrai o nó de menor custo
+            cost, state, head, tape, path = heapq.heappop(priority_queue)
             
-            # Verifica se esse estado já foi visitado para evitar ciclos
-            if (state, head, tuple(tape)) in visited:
+            if (state, head) in visited and visited[(state, head)] <= cost:
                 continue
-            visited.add((state, head, tuple(tape)))
+            visited[(state, head)] = cost
             
-            # Se chegamos a um estado de aceitação, retornamos o resultado
+            self.history.append((state, head, tape[:], path, cost))  # Salva o estado atual para animação
+            
             if state in self.accept_states:
                 return ''.join(tape), path, cost
             
-            # Obtém o símbolo atual da fita (ou '_' caso esteja fora dos limites)
             current_symbol = tape[head] if 0 <= head < len(tape) else '_'
             
-            # Verifica se há transições para o estado atual e símbolo lido
             if (state, current_symbol) in self.transitions:
-                for next_state, write_symbol, move, weight in self.transitions[(state, current_symbol)]:
-                    new_tape = tape[:]
-                    new_tape[head] = write_symbol  # Escreve na fita
-                    new_head = head + (1 if move == 'R' else -1)  # Move a cabeça para direita (R) ou esquerda (L)
-                    
-                    # Se o movimento for para fora da fita, expande a fita
-                    if new_head < 0:
-                        new_tape.insert(0, '_')
-                        new_head = 0
-                    elif new_head >= len(new_tape):
-                        new_tape.append('_')
-                    
-                    # Adiciona a nova configuração na fila de prioridade
-                    heapq.heappush(priority_queue, (cost + weight, next_state, new_head, new_tape, path + [(state, next_state, weight)]))
+                best_transition = min(self.transitions[(state, current_symbol)], key=lambda x: x[3])
+                next_state, write_symbol, move, weight = best_transition
+                
+                new_tape = tape[:]
+                new_tape[head] = write_symbol
+                new_head = head + (1 if move == 'R' else -1)
+                
+                if new_head < 0:
+                    new_tape.insert(0, '_')
+                    new_head = 0
+                elif new_head >= len(new_tape):
+                    new_tape.append('_')
+                
+                heapq.heappush(priority_queue, (cost + weight, next_state, new_head, new_tape, path + [(state, next_state, weight)]))
         
-        return None  # Retorna None se nenhum estado de aceitação for atingido
+        return None
 
-def draw_graph(transitions):
-    """ Gera uma visualização do grafo de transições da Máquina de Turing """
+def draw_graph(transitions, history, save_gif=False):
+    """ Gera uma animação interativa do grafo da Máquina de Turing. """
     G = nx.DiGraph()
     
     for (state, symbol), transitions_list in transitions.items():
@@ -87,42 +59,58 @@ def draw_graph(transitions):
             G.add_edge(state, next_state, label=f'{symbol}/{write_symbol}, {move}, {weight}')
     
     pos = nx.spring_layout(G)
-    labels = nx.get_edge_attributes(G, 'label')
-    nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=2000, font_size=10)
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    
+    def update(frame):
+        ax.clear()
+        state, head, tape, path, cost = history[frame]
+        
+        # Desenha os nós e arestas
+        nx.draw(G, pos, with_labels=True, node_color='lightblue', edge_color='gray', node_size=1000, font_size=10, ax=ax)
+        
+        # Destaca a transição atual
+        if path:
+            last_edge = path[-1]
+            nx.draw_networkx_edges(G, pos, edgelist=[(last_edge[0], last_edge[1])], width=2.5, edge_color='red', ax=ax)
+        
+        labels = nx.get_edge_attributes(G, 'label')
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=labels, font_size=6, ax=ax)
+        
+        # Exibir a fita e estado atual
+        ax.set_title(f"Passo {frame+1}: Estado = {state}, Cabeça = {head}, Custo = {cost}\nFita: {''.join(tape)}")
+
+    ani = animation.FuncAnimation(fig, update, frames=len(history), interval=1000, repeat=False)
+    if save_gif:
+        ani.save("turing_machine.gif", writer="pillow", fps=1)  # Salva como GIF
     plt.show()
 
-# Definição dos estados, fita inicial, transições e estado inicial
-states = {'q0', 'q1', 'q2', 'q3', 'q_accept'}  # Conjunto de estados da máquina
+# Definição dos estados e transições
+states = {'q0', 'q1', 'q2', 'q3', 'q4', 'q_accept'}
+tape = ['0', '0', '1', '1', '0']
 
-tape = ['1', '0', '1', '1', '0']  # Configuração inicial da fita
-
-# Definição das transições da máquina
-# Formato: (estado atual, símbolo lido) -> [(próximo estado, símbolo escrito, direção do movimento, peso da transição)]
 transitions = {
-    ('q0', '1'): [('q1', '0', 'R', 4)],
-    ('q1', '0'): [('q2', '1', 'R', 3)],
-    ('q2', '1'): [('q3', '0', 'R', 6)],
-    ('q3', '1'): [('q4', '1', 'R', 1)],
-    ('q4', '0'): [('q_accept', '_', 'R', 3)],
-    ('q4', '_'): [('q_accept', '_', 'R', 2)]
+    ('q0', '0'): [('q1', '0', 'R', 1), ('q2', '1', 'R', 2)],  # Escolha entre q1 e q2
+    ('q1', '0'): [('q2', '1', 'R', 3), ('q3', '0', 'L', 9)],  # Escolha entre q2 e q3
+    ('q2', '1'): [('q3', '0', 'R', 6), ('q2', '0', 'R', 7)],
+    ('q3', '1'): [('q4', '1', 'R', 1), ('q2', '1', 'L', 5)],  # Retorno ao q2 ou avanço para q4
+    ('q4', '0'): [('q_accept', '_', 'R', 6)]
 }
 
+start_state = 'q0'
+accept_states = {'q_accept'}
 
-start_state = 'q0'  # Estado inicial
-accept_states = {'q_accept'}  # Estados de aceitação
-
-
-
-# Criando e executando a máquina de Turing
+# Criando e executando a Máquina de Turing
 machine = TuringMachine(states, tape, transitions, start_state, accept_states)
 result = machine.run()
 
-# Exibindo os resultados
-print("Fita final:", result[0] if result else "Rejeitado")
-print("Caminho percorrido:", result[1] if result else "Nenhum")
-print("Soma ponderada:", result[2] if result else "N/A")
+# Exibindo os resultados finais
+if result:
+    print("Fita final:", result[0])
+    print("Caminho percorrido:", result[1])
+    print("Soma ponderada:", result[2])
+else:
+    print("Rejeitado")
 
-# Gerando o grafo de transições
-draw_graph(transitions)
-
+# Gerando a animação do grafo
+draw_graph(transitions, machine.history, save_gif=True)
